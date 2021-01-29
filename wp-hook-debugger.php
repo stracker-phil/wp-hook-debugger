@@ -11,8 +11,7 @@
  * @formatter:on
  */
 
-add_action( 'wp_footer', 'dm_debug_invalid_hooks', 0 );
-add_action( 'admin_footer', 'dm_debug_invalid_hooks', 0 );
+add_action( 'shutdown', 'dm_debug_invalid_hooks', 0 );
 add_filter( 'plugin_row_meta', 'dm_debug_usage_hooks', 10, 4 );
 
 define( 'DM_HOOK_DEBUG_PLUGIN', plugin_basename( __FILE__ ) );
@@ -57,8 +56,18 @@ function dm_debug_invalid_hooks() {
 	foreach ( $GLOBALS['wp_filter'] as $name => $hook ) {
 		foreach ( $hook->callbacks as $prio => $list ) {
 			foreach ( $list as $cb ) {
-				$valid = is_callable( $cb['function'], false, $fn_name );
+				$cbf   = $cb['function'];
+				$valid = is_callable( $cbf, false, $fn_name );
+
 				if ( ! $valid ) {
+					if ( 'Array' === $fn_name && 2 <= count( $cbf ) ) {
+						$fn_name = sprintf(
+							'%s::%s',
+							gettype( $cbf[0] ),
+							print_r( $cbf[1], true )
+						);
+					}
+
 					$code[] = sprintf( '<li>%d. <strong>%s</strong> [prio %s]: <code>%s</code></li>', $num, $name, $prio, $fn_name );
 					$num ++;
 				}
@@ -89,6 +98,7 @@ function dm_debug_invalid_hooks() {
 	$code[] = 'window.alert("Details were copied into the clipboard");';
 	$code[] = '}';
 	$code[] = '</script>';
+	$code[] = '<div style="padding: 1px"></div>';
 
 	echo implode( "\n", $code );
 }
@@ -98,10 +108,10 @@ function dm_debug_usage_hooks( $plugin_meta, $plugin_file, $plugin_data, $status
 		return $plugin_meta;
 	}
 
-	$usage = [];
+	$usage   = [];
 	$usage[] = '<i class="dashicons dashicons-info-outline"></i> <strong>How it works</strong>: Enable the plugin. You will see a list of invalid hooks at the bottom of every page.<br>';
 	$usage[] = '<i class="dashicons dashicons-info-outline"></i> <strong>Who will see the debug output?</strong> Administrator users will always see the debug output. While <code>WP_DEBUG</code> is enabled, every user can see the debug output.<br>';
-	if (defined('WP_DEBUG') && WP_DEBUG) {
+	if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 		$usage[] = '<i class="dashicons dashicons-warning"></i> <strong>WP_DEBUG is enabled:</strong> Every visitor will see the debug output at the bottom of the page, also on the front end!<br>';
 	} else {
 		$usage[] = '<i class="dashicons dashicons-info-outline"></i> <strong>WP_DEBUG is disabled:</strong> Only administrator users will see the debug output at the bottom of the page.<br>';
